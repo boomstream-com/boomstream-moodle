@@ -35,6 +35,8 @@ if (isset($_GET['run']) && $_GET['run'] == 'test') {
 class filter_boomstream extends moodle_text_filter {
 
     public function filter($text, array $options = array()) {
+        global $USER;
+
         if (isset($_GET['run']) && $_GET['run'] == 'test') {
             $USER = (object)$USER = ['id' => 1, 'email' => 'obidnov@gmail.com'];
         }
