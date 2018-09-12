@@ -47,10 +47,15 @@ class filter_boomstream extends moodle_text_filter {
         }
         $matches = [];
         preg_match_all("/https?:\/\/play\.boomstream\.com[^'\"\s]+code=([^&'\"\s]+)/", $text, $matches);
-        if (empty($matches)) {
-            preg_match_all("/https?:\/\/play\.boomstream\.com\/([^&'\"\s\.\?]{6,7,8})/", $text, $matches);
+        if (empty($matches[0])) {
+            preg_match_all("/https?:\/\/play\.boomstream\.com\/([^&'\"\s\.\?]{8})/", $text, $matches);
         }
-        if (!empty($matches)) {
+        if (isset($_GET['run']) && $_GET['run'] == 'test2') {
+            var_dump($matches);
+            die();
+        }
+        if (!empty($matches[1])) {
+            $i = 0;
             foreach ($matches[1] as $media) {
                 $recoveryString = '';
                 if ($key = get_config('filter_boomstream', 'key')) {
@@ -59,11 +64,19 @@ class filter_boomstream extends moodle_text_filter {
                 	$result = file_get_contents('https://boomstream.com/api/ppv/addbuyer?format=json&apikey=' . $key . '&code=' . $subscription . '&media=' . $media . '&email=' . $USER->email . '&notification=0&hash=' . $hash);
                 	$result = json_decode($result);
                 	if (isset($result->Status) & $result->Status == 'Success') {
-                            $recoveryString = '&id_recovery=' . $hash;
+                            $recoveryString = '?id_recovery=' . $hash;
                         }
                     }
                 }
-                $text = preg_replace("/code=" . $media . "/", "code=" . $media . $recoveryString, $text);
+                
+                $pattern = "/" . preg_quote($matches[0][$i], '/') . "/";
+                if (isset($_GET['run']) && $_GET['run'] == 'test3') {
+                    var_dump($pattern);
+                    die();
+                }
+                $text = preg_replace($pattern, "https://play.boomstream.com/" . $media . $recoveryString, $text);
+
+                $i ++;
             }
         }
         return $text;
