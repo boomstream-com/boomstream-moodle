@@ -47,6 +47,9 @@ class filter_boomstream extends moodle_text_filter {
         }
         $matches = [];
         preg_match_all("/https?:\/\/play\.boomstream\.com[^'\"\s]+code=([^&'\"\s]+)/", $text, $matches);
+        if (empty($matches)) {
+            preg_match_all("/https?:\/\/play\.boomstream\.com\/([^&'\"\s\.\?]{6,7,8})/", $text, $matches);
+        }
         if (!empty($matches)) {
             foreach ($matches[1] as $media) {
                 $recoveryString = '';
