@@ -30,15 +30,26 @@ if ($ADMIN->fulltree) {
     $description = new lang_string('description', 'filter_boomstream');
     $settings->add(new admin_setting_heading('defaultsettings', '', $description));
 
+    $settings->add(new admin_setting_configtext('filter_boomstream/hostname',
+        get_string('hostname', 'filter_boomstream'),
+        get_string('hostname_desc', 'filter_boomstream'),
+        'play.boomstream.com',
+        PARAM_TEXT));
+
     $settings->add(new admin_setting_configtext('filter_boomstream/key',
         get_string('key', 'filter_boomstream'),
         get_string('key_desc', 'filter_boomstream'),
-        'key',
+        'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
         PARAM_TEXT));
 
     $settings->add(new admin_setting_configtext('filter_boomstream/subscription',
         get_string('subscription', 'filter_boomstream'),
         get_string('subscription_desc', 'filter_boomstream'),
-        'subscription',
+        'XXXXXXXX',
         PARAM_TEXT));
+
+    $settings->add(new admin_setting_configselect('filter_boomstream/debug',
+        get_string('debug', 'filter_boomstream'),
+        get_string('debug_desc', 'filter_boomstream'),
+        0, [0 => 'No', 1 => 'Yes']));
 }

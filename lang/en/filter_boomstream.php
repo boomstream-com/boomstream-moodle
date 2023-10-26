@@ -24,8 +24,12 @@
  */
  
 $string['filtername'] = 'Boomstream video platform';
+$string['hostname'] = 'Hostname';
+$string['hostname_desc'] = 'Hostname of boomstream player';
 $string['key'] = 'API key';
 $string['key_desc'] = 'API key is located at boomstream.com -> Project Settings -> Integration';
 $string['subscription'] = 'Subscription code';
 $string['subscription_desc'] = 'Subscription code is located at boomstream.com -> Subscriptions Tab -> Subscription Nane';
+$string['debug'] = 'Use debug';
+$string['debug_desc'] = 'Add trace information into html: Boomstream filter is applied ....';
 $string['description'] = '<div style="margin:10px;padding:15px;background-color:#f5f5f5;border:2px solid #e3e3e3;"><img src="https://boomstream.com/favicon.ico"> Welcome to Boomstream Moodle plugin, check our <a href="https://boomstream.com" target="_blank">welcome page</a> for registration and manage videos.</div>';

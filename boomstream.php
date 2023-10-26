@@ -2,98 +2,118 @@
 
 class boomstream {
 
+    private $hostname;
+    private $key;
+    private $subscription;
+    private $debug = 0;
+
     public function filter($text, array $options = array()) {
 
-        //https://video.autoshcool-online.com.ua/Rg8vLM74
-        //https://play.boomstream.com/Rg8vLM74
+        $debugMessage = '';
+        if (
+            ($this->hostname = get_config('filter_boomstream', 'hostname')) &&
+            ($this->key = get_config('filter_boomstream', 'key')) &&
+            ($this->subscription = get_config('filter_boomstream', 'subscription'))
+        ) {
 
-        // Do a quick check using stripos to avoid unnecessary work
-        if (strpos($text, 'play.boomstream.com') === false && strpos($text, 'video.autoshcool-online.com.ua') === false) {
+            $this->debug = intval(get_config('filter_boomstream', 'debug'));
+
+            $debugMessage .= "\nStart boomstream plugin";
+            $debugMessage .= "\nhostname: " . $this->hostname;
+            $debugMessage .= "\nkey: " . $this->key;
+            $debugMessage .= "\nsubscription: " . $this->subscription;
+            $debugMessage .= "\n\n";
+
+            $matches = [];
+            $pattern = "/src\s*=\s*[\"'](https:\/\/" .
+                "(" .
+                "play\.boomstream\.com|" .
+                "play\.boomstream\.net|" .
+                str_replace(".", "\.", addslashes($this->hostname)) .
+                ")" .
+                "(?:\/|[^'\"\s]+code=)([a-zA-Z0-9]{8}).*?)[\"']/i";
+            preg_match_all($pattern, $text, $matches);
+            if (isset($matches[0]) && count($matches[0]) > 0) {
+                $result = $this->_process($text, $matches[1], $matches[2], $matches[3]);
+                $text = $result[0];
+                $debugMessage .= $result[1];
+            }
+        }
+
+        if ($this->debug === 1) {
+            return $text . "\n<!--Boomstream filter is applied\n" . $debugMessage . "\n-->\n";
+        } else {
             return $text;
         }
-
-
-
-        $matches = [];
-
-        preg_match_all("/(https?:\/\/play\.boomstream\.com)\/([a-zA-Z0-9]{8})/", $text, $matches);
-        if (isset($matches[0]) && count($matches[0]) > 0) {
-            $text = $this->_process($text, $matches);
-        }
-
-        preg_match_all("/(https?:\/\/play\.boomstream\.com)[^'\"\s]+code=([a-zA-Z0-9]+)/", $text, $matches);
-        if (isset($matches[0]) && count($matches[0]) > 0) {
-            $text = $this->_process($text, $matches);
-        }
-
-        preg_match_all("/(https?:\/\/video\.autoshcool-online\.com\.ua)\/([a-zA-Z0-9]{8})/", $text, $matches);
-        if (isset($matches[0]) && count($matches[0]) > 0) {
-            $text = $this->_process($text, $matches);
-        }
-
-        preg_match_all("/(https?:\/\/video\.autoshcool-online\.com\.ua)[^'\"\s]+code=([a-zA-Z0-9]+)/", $text, $matches);
-        if (isset($matches[0]) && count($matches[0]) > 0) {
-            $text = $this->_process($text, $matches);
-        }
-        return $text;
     }
 
-    private function _process($text, $matches) {
+    private function _process($text, $urls, $hosts, $codes) {
         global $USER;
 
+        $debugMessage = '';
+
         if (defined("boomstream_test")) {
-            var_dump($matches);
             $USER = (object)$USER = ['id' => 1, 'email' => 'obidnov@gmail.com'];
         }
 
-        if (isset($matches[2]) && count($matches[2]) > 0) {
+        if (count($codes) > 0) {
             $i = 0;
-            foreach ($matches[2] as $media) {
+            foreach ($codes as $media) {
 
-                if (defined("boomstream_test")) {
-                    var_dump($media);
+                $matchedUrl = $urls[$i];
+                $identifier = $hosts[$i];
+
+                $debugMessage .= "\nTry working with code: " . $media;
+                $debugMessage .= "\nTry working with url: " . $matchedUrl;
+                $debugMessage .= "\nTry working with host: " . $identifier;
+
+                if (isset($_SERVER['HTTP_HOST'])) {
+                    $identifier = $_SERVER['HTTP_HOST'];
+                }
+                $hash = $identifier . '|' . $USER->id . '|' . $media;
+                $link = 'https://boomstream.com/api/ppv/addbuyer?' .
+                    'format=json&' .
+                    'apikey=' .  $this->key .
+                    '&code=' . $this->subscription .
+                    '&media=' . $media .
+                    '&email=' . $USER->email .
+                    '&notification=0' .
+                    '&hash=' . $hash;
+
+                $debugMessage .= "\nTry call api/ppv/addbuyer: " . $link;
+
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $link);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+                try {
+                    $response = curl_exec($ch);
+                    curl_close($ch);
+                    $result = json_decode($response, true);
+                    unset($result['Versions']);
+                    $result = (object) $result;
+                } catch (Exception $e) {
+                    $debugMessage .= "\nFailed call api/ppv/addbuyer: " . $link;
+                    $debugMessage .= "\nError: " . $e->getMessage();
+                    continue;
                 }
 
-                $host = $matches[1][$i];
-                $matchedUrl = $matches[0][$i];
+                $debugMessage .= "\nResult:\n";
+                $debugMessage .= print_r($result, true);
 
-                $recoveryString = '';
-                if ($key = get_config('filter_boomstream', 'key')) {
-                    if ($subscription = get_config('filter_boomstream', 'subscription')) {
-                        $identifier = 'autoshcool-online.com.ua';
-                        if (isset($_SERVER['HTTP_HOST'])) {
-                            $identifier = $_SERVER['HTTP_HOST'];
-                        }
-                        $hash = $identifier . '|' . $USER->id;
-                        $result = file_get_contents('https://boomstream.com/api/ppv/addbuyer?format=json&apikey=' . $key . '&code=' . $subscription . '&media=' . $media . '&email=' . $USER->email . '&notification=0&hash=' . $hash);
-                        $result = json_decode($result);
-                        if (defined("boomstream_test")) {
-                            var_dump($result);
-                        }
-                        if (isset($result->Status) & $result->Status == 'Success') {
-                            $recoveryString = '?id_recovery=' . $hash;
-                        }
+                if (isset($result->Status) & $result->Status == 'Success') {
+                    if (false !== strpos($matchedUrl, "?")) {
+                        $resultUrl = $matchedUrl . '&id_recovery=' . $hash;
+                    } else {
+                        $resultUrl = $matchedUrl . '?id_recovery=' . $hash;
                     }
+
+                    $pattern = "/" . preg_quote($matchedUrl, '/') . "/";
+                    $text = preg_replace($pattern, $resultUrl, $text);
                 }
-
-                $pattern = "/" . preg_quote($matchedUrl, '/') . "/";
-                $params = '';
-                $parts = parse_url($matchedUrl);
-                if (isset($parts['query'])) {
-                    parse_str($parts['query'], $query);
-                    if (isset($query['code'])) {
-                        unset($query['code']);
-                    }
-                    if (count($query) > 0) {
-                        $params = "&" . implode("&", $query);
-                    }
-                }
-
-                $text = preg_replace($pattern, $host . "/" . $media . $recoveryString . $params, $text);
-
                 $i ++;
             }
         }
-        return $text;
+        return [$text, $debugMessage];
     }
 }
