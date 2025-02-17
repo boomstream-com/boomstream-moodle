@@ -47,7 +47,30 @@ class boomstream {
         }
     }
 
+    private function _curlBoomstream($link, &$debugMessage)
+    {
+
+        $debugMessage .= "\nTry to call api/ppv: " . $link;
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $link);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        try {
+            $response = curl_exec($ch);
+            curl_close($ch);
+            $result = json_decode($response, true);
+            unset($result['Versions']);
+            return (object) $result;
+        } catch (Exception $e) {
+            $debugMessage .= "\nFailed to call api/ppv: " . $link;
+            $debugMessage .= "\nError: " . $e->getMessage();
+            return false;
+        }
+    }
+
     private function _process($text, $urls, $hosts, $codes) {
+        define("ZERO_TIME", '0000-00-00 00:00:00');
         global $USER;
 
         $debugMessage = '';
@@ -71,7 +94,7 @@ class boomstream {
                     $identifier = $_SERVER['HTTP_HOST'];
                 }
                 $hash = $identifier . '|' . $USER->id . '|' . $media;
-                $link = 'https://boomstream.com/api/ppv/addbuyer?' .
+                $params =
                     'format=json&' .
                     'apikey=' .  $this->key .
                     '&code=' . $this->subscription .
@@ -80,28 +103,46 @@ class boomstream {
                     '&notification=0' .
                     '&hash=' . $hash;
 
-                $debugMessage .= "\nTry call api/ppv/addbuyer: " . $link;
-
-                $ch = curl_init();
-                curl_setopt($ch, CURLOPT_URL, $link);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-                try {
-                    $response = curl_exec($ch);
-                    curl_close($ch);
-                    $result = json_decode($response, true);
-                    unset($result['Versions']);
-                    $result = (object) $result;
-                } catch (Exception $e) {
-                    $debugMessage .= "\nFailed call api/ppv/addbuyer: " . $link;
-                    $debugMessage .= "\nError: " . $e->getMessage();
-                    continue;
-                }
+                $result = $this->_curlBoomstream('https://boomstream.com/api/ppv/addbuyer?' . $params, $debugMessage);
 
                 $debugMessage .= "\nResult:\n";
                 $debugMessage .= print_r($result, true);
 
-                if (isset($result->Status) & $result->Status == 'Success') {
+                if (isset($result->Status) && $result->Status == 'Success') {
+
+                    $dtExpiration = new DateTime($result->AccessExpirationDate ?? 'now', new DateTimeZone('Europe/Moscow'));
+                    $dtNow = new DateTime('now', new DateTimeZone('Europe/Moscow'));
+
+                    $isAccessExpired = $result->AccessExpirationDate && $result->AccessExpirationDate != ZERO_TIME && $dtExpiration < $dtNow;
+
+                    $debugMessage .= "\nisAccessExpired: " . ($isAccessExpired ? "yes" : "no") . "\n";
+
+                    if ($result->Recovery == 0 || $isAccessExpired) {
+                        $resultSubscription = $this->_curlBoomstream('https://boomstream.com/api/ppv/info?' . $params, $debugMessage);
+
+                        $debugMessage .= "\nSubscription result:\n";
+                        $debugMessage .= print_r($resultSubscription, true);
+
+                        if ($result->Recovery == 0 && isset($resultSubscription->Items['Item']['Activation']) && isset($resultSubscription->Status) && $resultSubscription->Status == 'Success') {
+                            $result = $this->_curlBoomstream('https://boomstream.com/api/ppv/updatebuyer?' . $params . '&activation=' . $resultSubscription->Items['Item']['Activation'], $debugMessage);
+
+                            $debugMessage .= "\nUpdateBuyer result:\n";
+                            $debugMessage .= print_r($result, true);
+                        }
+                        if ($isAccessExpired && isset($resultSubscription->Status) && $resultSubscription->Status == 'Success') {
+
+                            if (isset($resultSubscription->Items['Item']['AccessExpirationDate']) && !empty($resultSubscription->Items['Item']['AccessExpirationDate'])) {
+                                $accessExpire = $resultSubscription->Items['Item']['AccessExpirationDate'];
+                            } else {
+                                $accessExpire = $dtNow->add(new DateInterval("P" . $resultSubscription->Items['Item']['Period'] . "D"))->format('Y-m-d H:i:s');
+                            }
+                            $result = $this->_curlBoomstream('https://boomstream.com/api/ppv/updatebuyer?' . $params . '&access_expire=' . urlencode($accessExpire), $debugMessage);
+
+                            $debugMessage .= "\nUpdateBuyer result:\n";
+                            $debugMessage .= print_r($result, true);
+                        }
+                    }
+
                     if (false !== strpos($matchedUrl, "?")) {
                         $resultUrl = $matchedUrl . '&id_recovery=' . $hash;
                     } else {
@@ -110,6 +151,9 @@ class boomstream {
 
                     $pattern = "/" . preg_quote($matchedUrl, '/') . "/";
                     $text = preg_replace($pattern, $resultUrl, $text);
+
+                    $debugMessage .= "\nUsed url: " . $resultUrl . "\n";
+
                 }
                 $i ++;
             }
