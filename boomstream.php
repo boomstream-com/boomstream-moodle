@@ -10,8 +10,8 @@ class boomstream {
     public function filter($text, array $options = array()) {
 
         $debugMessage = '';
+        $this->hostname = get_config('filter_boomstream', 'hostname');
         if (
-            ($this->hostname = get_config('filter_boomstream', 'hostname')) &&
             ($this->key = get_config('filter_boomstream', 'key')) &&
             ($this->subscription = get_config('filter_boomstream', 'subscription'))
         ) {
@@ -19,18 +19,23 @@ class boomstream {
             $this->debug = intval(get_config('filter_boomstream', 'debug'));
 
             $debugMessage .= "\nStart boomstream plugin";
-            $debugMessage .= "\nhostname: " . $this->hostname;
+            $debugMessage .= "\nhostname: " . ($this->hostname ?: '(not set, will fall back to host from src)');
             $debugMessage .= "\nkey: " . $this->key;
             $debugMessage .= "\nsubscription: " . $this->subscription;
             $debugMessage .= "\n\n";
 
-            $matches = [];
-            $pattern = "/src\s*=\s*[\"'](https:\/\/" .
-                "(" .
+            $hostsPattern =
                 "play\.boomstream\.com|" .
                 "play\.boomstream\.net|" .
-                str_replace(".", "\.", addslashes($this->hostname)) .
-                ")" .
+                "play\.boomstream\.dev|" .
+                "play\.boomstream\.org";
+            if (!empty($this->hostname)) {
+                $hostsPattern .= "|" . str_replace(".", "\.", addslashes($this->hostname));
+            }
+
+            $matches = [];
+            $pattern = "/src\s*=\s*[\"'](https:\/\/" .
+                "(" . $hostsPattern . ")" .
                 "(?:\/|[^'\"\s]+code=)([a-zA-Z0-9]{8}).*?)[\"']/i";
             preg_match_all($pattern, $text, $matches);
             if (isset($matches[0]) && count($matches[0]) > 0) {
@@ -49,7 +54,16 @@ class boomstream {
 
     private function _curlBoomstream($link, &$debugMessage)
     {
+        $result = $this->_curlBoomstreamOnce($link, $debugMessage);
+        if ($result === false) {
+            $debugMessage .= "\nRetrying api/ppv call: " . $link;
+            $result = $this->_curlBoomstreamOnce($link, $debugMessage);
+        }
+        return $result;
+    }
 
+    private function _curlBoomstreamOnce($link, &$debugMessage)
+    {
         $debugMessage .= "\nTry to call api/ppv: " . $link;
 
         $ch = curl_init();
@@ -59,8 +73,17 @@ class boomstream {
 
         try {
             $response = curl_exec($ch);
-            curl_close($ch);
+            if ($response === false) {
+                $debugMessage .= "\nFailed to call api/ppv: " . $link;
+                $debugMessage .= "\nError: " . curl_error($ch);
+                return false;
+            }
             $result = json_decode($response, true);
+            if (!is_array($result)) {
+                $debugMessage .= "\nFailed to call api/ppv: " . $link;
+                $debugMessage .= "\nError: invalid response";
+                return false;
+            }
             unset($result['Versions']);
             return (object) $result;
         } catch (Exception $e) {
@@ -101,6 +124,14 @@ class boomstream {
                 }
 
                 $debugMessage .= "\nAPI calls to host: " . $this->hostname;
+
+                if ($identifier !== $this->hostname) {
+                    $sdkPattern = "/(https:\/\/)" . preg_quote($identifier, '/') . "(\/assets\/)/i";
+                    $text = preg_replace($sdkPattern, '${1}' . $this->hostname . '${2}', $text, -1, $sdkCount);
+                    if ($sdkCount > 0) {
+                        $debugMessage .= "\nRewrote SDK asset URLs (" . $sdkCount . ") on host " . $identifier . " to: " . $this->hostname;
+                    }
+                }
 
                 $params =
                     'format=json&' .
@@ -151,10 +182,12 @@ class boomstream {
                         }
                     }
 
-                    if (false !== strpos($matchedUrl, "?")) {
-                        $resultUrl = $matchedUrl . '&id_recovery=' . $hash;
+                    $rewrittenUrl = str_replace('://' . $identifier, '://' . $this->hostname, $matchedUrl);
+
+                    if (false !== strpos($rewrittenUrl, "?")) {
+                        $resultUrl = $rewrittenUrl . '&id_recovery=' . $hash;
                     } else {
-                        $resultUrl = $matchedUrl . '?id_recovery=' . $hash;
+                        $resultUrl = $rewrittenUrl . '?id_recovery=' . $hash;
                     }
 
                     $pattern = "/" . preg_quote($matchedUrl, '/') . "/";
