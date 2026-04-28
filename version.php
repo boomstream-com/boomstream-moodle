@@ -25,8 +25,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026042801;       // The current plugin version (Date: YYYYMMDDXX)
-$plugin->requires  = 2010112400;       // Requires this Moodle version
+$plugin->version   = 2026042803;       // The current plugin version (Date: YYYYMMDDXX)
+$plugin->requires  = 2017111300;       // Requires this Moodle version (Moodle 3.4)
 $plugin->component = 'filter_boomstream'; // Full name of the plugin (used for diagnostics)
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = 'v1.3.2';
+$plugin->release   = 'v1.3.4';

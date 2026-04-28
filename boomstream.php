@@ -24,6 +24,9 @@ class boomstream {
             $debugMessage .= "\nsubscription: " . $this->subscription;
             $debugMessage .= "\n\n";
 
+            $subscriptionOverrides = [];
+            $text = $this->_expandShortcodes($text, $debugMessage, $subscriptionOverrides);
+
             $hostsPattern =
                 "play\.boomstream\.com|" .
                 "play\.boomstream\.net|" .
@@ -39,7 +42,7 @@ class boomstream {
                 "(?:\/|[^'\"\s]+code=)([a-zA-Z0-9]{8}).*?)[\"']/i";
             preg_match_all($pattern, $text, $matches);
             if (isset($matches[0]) && count($matches[0]) > 0) {
-                $result = $this->_process($text, $matches[1], $matches[2], $matches[3]);
+                $result = $this->_process($text, $matches[1], $matches[2], $matches[3], $subscriptionOverrides);
                 $text = $result[0];
                 $debugMessage .= $result[1];
             }
@@ -50,6 +53,59 @@ class boomstream {
         } else {
             return $text;
         }
+    }
+
+    private function _expandShortcodes($text, &$debugMessage, &$subscriptionOverrides)
+    {
+        $outer = '/\[boomstream\s+((?:[a-z]+\[[^\[\]]*\]\s*)+)\]/i';
+        $hostname = $this->hostname;
+        return preg_replace_callback($outer, function ($m) use (&$debugMessage, &$subscriptionOverrides, $hostname) {
+            preg_match_all('/([a-z]+)\[([^\[\]]*)\]/i', $m[1], $kv, PREG_SET_ORDER);
+            $params = [];
+            foreach ($kv as $pair) {
+                $params[strtolower($pair[1])] = $pair[2];
+            }
+
+            if (empty($params['media']) || !preg_match('/^[a-zA-Z0-9]{8}$/', $params['media'])) {
+                $debugMessage .= "\nShortcode skipped (invalid/missing media): " . $m[0];
+                return $m[0];
+            }
+
+            $media = $params['media'];
+            $size  = $params['size']  ?? '640x360';
+            $mode  = strtolower($params['mode'] ?? 'iframe');
+            $parts = array_pad(explode('x', $size, 2), 2, '');
+            $w = ctype_digit($parts[0]) ? (int)$parts[0] : 640;
+            $h = ctype_digit($parts[1]) ? (int)$parts[1] : 360;
+
+            if (!empty($params['subscription']) && preg_match('/^[a-zA-Z0-9]+$/', $params['subscription'])) {
+                $subscriptionOverrides[$media] = $params['subscription'];
+            }
+
+            $host = !empty($hostname) ? $hostname : 'play.boomstream.com';
+
+            $debugMessage .= sprintf(
+                "\nExpanded shortcode: media=%s mode=%s size=%dx%d subscription=%s",
+                $media, $mode, $w, $h,
+                $subscriptionOverrides[$media] ?? '(global)'
+            );
+
+            if ($mode === 'adaptive') {
+                return sprintf(
+                    '<div style="width:%dpx;height:%dpx;">' .
+                    '<script src="https://%s/%s/config.jsonp" async></script>' .
+                    '<script src="https://%s/assets/javascripts/biframesdk.js" async></script>' .
+                    '<span data-boomstream-code="%s" data-boomstream-mode="adaptive" data-boomstream-use-fullscreen-mode="0"></span>' .
+                    '</div>',
+                    $w, $h, $host, $media, $host, $media
+                );
+            }
+
+            return sprintf(
+                '<iframe width="%d" height="%d" src="https://%s/%s" frameborder="0" allowfullscreen></iframe>',
+                $w, $h, $host, $media
+            );
+        }, $text);
     }
 
     private function _curlBoomstream($link, &$debugMessage)
@@ -93,7 +149,7 @@ class boomstream {
         }
     }
 
-    private function _process($text, $urls, $hosts, $codes) {
+    private function _process($text, $urls, $hosts, $codes, $subscriptionOverrides = []) {
         define("ZERO_TIME", '0000-00-00 00:00:00');
         global $USER;
 
@@ -125,6 +181,10 @@ class boomstream {
 
                 $debugMessage .= "\nAPI calls to host: " . $this->hostname;
 
+                $activeSubscription = $subscriptionOverrides[$media] ?? $this->subscription;
+                $debugMessage .= "\nSubscription for this match: " . $activeSubscription
+                    . (isset($subscriptionOverrides[$media]) ? ' (shortcode override)' : ' (global)');
+
                 if ($identifier !== $this->hostname) {
                     $sdkPattern = "/(https:\/\/)" . preg_quote($identifier, '/') . "(\/assets\/)/i";
                     $text = preg_replace($sdkPattern, '${1}' . $this->hostname . '${2}', $text, -1, $sdkCount);
@@ -136,7 +196,7 @@ class boomstream {
                 $params =
                     'format=json&' .
                     'apikey=' .  $this->key .
-                    '&code=' . $this->subscription .
+                    '&code=' . $activeSubscription .
                     '&media=' . $media .
                     '&email=' . $USER->email .
                     '&notification=0' .

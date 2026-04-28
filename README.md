@@ -1,126 +1,117 @@
-# Boomstream Filter for Moodle
+# Boomstream Filter
 
-Moodle-фильтр, который перехватывает HTML-контент страниц курсов и встроенный плеер Boomstream привязывает к текущему пользователю Moodle через Pay Per View API. Пользователь получает персональный `id_recovery`, по которому Boomstream проверяет доступ к видео.
+Boomstream Filter automatically binds embedded Boomstream players on Moodle course pages to the currently logged-in Moodle user, so videos play only for authorised viewers and access is checked against your Boomstream Pay Per View subscription.
 
-## Установка
+Use Boomstream to manage videos and online broadcasts:
 
-1. Распаковать архив.
-2. Скопировать папку `boomstream` в `<moodle>/filter/`.
-3. Site administration → Filters → Manage filters → включить **Boomstream video platform**.
-4. Site administration → Plugins → Filters → Boomstream — заполнить настройки.
+* Upload videos in different formats.
+* Use DRM protection for uploaded videos.
+* Stream live online broadcasts.
+* Sell videos via the Boomstream Pay Per View option.
 
-## Настройки (`settings.php`)
+## How it works
 
-| Ключ | Назначение |
-|---|---|
-| `hostname` | Целевой хост Boomstream. Используется для (а) серверных API-вызовов, (б) подмены домена в `src` плеера, (в) подмены домена SDK-скрипта. По умолчанию `play.boomstream.com`. Опционален — при пустом значении плагин подставляет хост из самого `src` найденного плеера, подмена становится no-op. |
-| `key` | API-key проекта (Project Settings → Integration). |
-| `subscription` | Код подписки (Subscriptions Tab → Subscription Name). |
-| `debug` | Если `Yes` — в HTML добавляется HTML-комментарий с трассой: какие коды нашлись, какие URL дёргались, что вернул API. |
+Whenever a course page is rendered, the filter scans the HTML for any embedded Boomstream player and, for each match, talks to the Boomstream PPV API on behalf of the current Moodle user:
 
-Фильтр работает, если заполнены `key` и `subscription`. Поле `hostname` опционально — если оно пустое, плагин использует хост, обнаруженный в `src` найденного плеера (`$identifier` из регулярки), и в этом режиме подмена домена становится no-op, а API-вызовы идут на тот же хост, который вписал автор.
+1. The user is registered as a buyer (`/api/ppv/addbuyer`) using their Moodle e-mail and a unique hash `<HTTP_HOST>|<userId>|<media_code>`.
+2. If the buyer has an active subscription but no activation yet, the plugin attaches them to the subscription (`/api/ppv/info` + `/api/ppv/updatebuyer`).
+3. If their access has expired but the subscription is still valid, the plugin extends the access window automatically.
+4. A personal recovery token (`id_recovery`) is appended to the player URL so that the Boomstream player itself only streams the video to that specific user.
 
-## Что фильтр заменяет
+The end user does not see any of this — the player just opens and plays.
 
-Фильтр проходит по всему отрендеренному HTML и ищет атрибут `src="..."`, ведущий на плеер Boomstream. Регулярка собирается в `filter()` (`boomstream.php:27-39`):
+## Embed formats supported
+
+You can embed a Boomstream video either with a short, plugin-specific shortcode or by pasting the standard HTML embed produced by Boomstream itself.
+
+### 1. Shortcode (recommended)
 
 ```
-src="https://(play.boomstream.com|.net|.dev|.org|<hostname>)/.../?code=XXXXXXXX..."
+[boomstream media[MEDIA_CODE] subscription[SUBSCRIPTION_CODE] size[640x360]]
 ```
 
-Из совпадения извлекаются три части:
+Example:
 
-1. **URL** целиком (то, что в `src`).
-2. **Хост** (`play.boomstream.com` и т.п.) — используется как `identifier` в хеше.
-3. **Code** — 8-символьный идентификатор медиа (`[a-zA-Z0-9]{8}`).
+```
+[boomstream media[Am0TlUow] subscription[N5wLwvlW] size[800x450]]
+```
 
-Поддерживаются обе формы вставки:
+Parameters:
 
-- классический iframe — `src="https://play.boomstream.com/<code>/..."`,
-- adaptive-режим — `src="https://play.boomstream.com/<code>/config.jsonp"` рядом с `<span data-boomstream-code="<code>" data-boomstream-mode="adaptive">`.
+| Parameter | Required | Description |
+|---|---|---|
+| `media[]` | yes | 8-character Boomstream media code (e.g. `Am0TlUow`). |
+| `subscription[]` | no | Subscription code. **Overrides the global subscription** configured in plugin settings for this embed only. Useful when different videos belong to different Boomstream subscriptions. If omitted, the global subscription is used. |
+| `size[]` | no | Player size in `WIDTHxHEIGHT` format. Default: `640x360`. |
+| `mode[]` | no | `iframe` (default) — expanded into a classic `<iframe>` embed. `adaptive` — expanded into Boomstream's adaptive multi-tag embed (`<script>` + `<script>` + `<span data-boomstream-code>` inside a sized `<div>`). |
 
-К каждому найденному `src` фильтр:
+Adaptive example:
 
-1. **Подменяет хост** на сконфигурированный `hostname` (см. ниже).
-2. **Дописывает параметр** `id_recovery=<hash>` (через `?` или `&`, в зависимости от того, был ли уже query-string).
+```
+[boomstream media[Am0TlUow] mode[adaptive] size[1280x720]]
+```
 
-Дополнительно в `_process` для каждой найденной вставки выполняется подмена SDK-скрипта: после того как для матча определён `$identifier` (host из `src`) и `$this->hostname` (целевой host для API), все URL вида `https://<identifier>/assets/...` (типичный пример — `https://play.boomstream.com/assets/javascripts/biframesdk.js?v=1.0.5`) переписываются на `https://<hostname>/assets/...`. Это нужно, чтобы при кастомном домене SDK-скрипт и плеер загружались с одного и того же хоста. Если `$identifier === $this->hostname` (т.е. `hostname` не сконфигурирован и сделан фолбэк на host из `src`), подмена пропускается.
+The shortcode is expanded server-side before the page is sent to the browser. After expansion the resulting HTML goes through the same access-control pipeline described below — the user gets a personal `id_recovery` and Boomstream PPV is checked.
 
-Span с `data-boomstream-code` фильтр не трогает — там нет хоста.
+### 2. Raw HTML embed
 
-### Домен в `src` переписывается на сконфигурированный `hostname`
-
-Если в настройках указан, например, `play.boomstream.net`, а автор курса вставил `src="https://play.boomstream.com/<code>/config.jsonp"` — фильтр заменит хост и в HTML страницы окажется `src="https://play.boomstream.net/<code>/config.jsonp?id_recovery=..."`.
-
-Так же используется `hostname` и в других местах:
-
-1. **Регулярка** (`boomstream.php:27-39`) — `hostname` добавляется в whitelist допустимых хостов плеера, чтобы фильтр распознавал в `src` ваш кастомный домен наряду с `play.boomstream.{com,net,dev,org}`.
-2. **API-вызовы** (`addbuyer` / `info` / `updatebuyer`) — серверные запросы PPV идут на `$this->hostname`.
-3. **SDK-скрипт adaptive-плеера** — URL вида `https://<identifier>/assets/...` (например, `biframesdk.js`) переписывается на `https://<hostname>/assets/...`. Делается per-match внутри `_process` после резолва `$identifier` и `$this->hostname`.
-
-Если `hostname` не задан в настройках, плагин подставляет хост, найденный в самом `src` (`$identifier` из регулярки), — тогда подмена `src` фактически становится no-op, а SDK-скрипт пропускается (потому что `$identifier === $this->hostname`).
-
-## Алгоритм работы
-
-Для каждого найденного `code` (`boomstream.php:_process`):
-
-1. **Формируется hash** в виде `<host>|<userId>|<code>`, где `<host>` — `$_SERVER['HTTP_HOST']` (а в CLI/тесте — хост из найденного URL).
-2. **`POST /api/ppv/addbuyer`** — регистрирует/обновляет покупателя:
-   - `apikey`, `code` (subscription), `media` (code), `email` (`$USER->email`), `notification=0`, `hash`.
-3. Если ответ `Status == "Success"`:
-   - Считается `isAccessExpired` по `AccessExpirationDate` (зона `Europe/Moscow`).
-   - Если `Recovery == 0` **или** доступ истёк — дёргается **`/api/ppv/info`**, чтобы получить активную подписку пользователя.
-   - Если активация найдена и `Recovery == 0` → **`/api/ppv/updatebuyer&activation=...`** — привязывает покупателя к активации.
-   - Если доступ истёк → **`/api/ppv/updatebuyer&access_expire=...`** — продлевает доступ либо до `AccessExpirationDate` из подписки, либо до `now + Period дней`.
-4. После успешной обработки в `src` подставляется `id_recovery=<hash>` — браузер запрашивает плеер уже с этим параметром, и Boomstream отдаёт видео авторизованному пользователю.
-5. Если `addbuyer` вернул не `Success` — URL **не модифицируется**, в debug пишется `Result failed: <Message>`.
-
-## Сетевой слой и ретраи
-
-`_curlBoomstream` (`boomstream.php:55`) — обёртка над `_curlBoomstreamOnce` (`boomstream.php:65`). Если первый вызов вернул `false` (curl-ошибка, пустой/невалидный JSON, исключение) — делается **один повтор**, в debug добавляется `Retrying api/ppv call: ...`. Логически «не Success» (например, `Application not found`) ретраем не считается — повторять смысла нет.
-
-## Debug-режим
-
-При `debug = Yes` к выходу фильтра добавляется HTML-комментарий вида:
+You can also paste the standard embed code generated by Boomstream:
 
 ```html
-<!--Boomstream filter is applied
-Start boomstream plugin
-hostname: play.boomstream.net          (или: (not set, will fall back to host from src))
-key: ...
-subscription: ...
+<!-- Classic iframe embed -->
+<iframe src="https://play.boomstream.com/<MEDIA_CODE>" frameborder="0" allowfullscreen></iframe>
 
-Try working with code: ...
-Try working with url: ...
-Try working with host: play.boomstream.com
-API calls to host: play.boomstream.net
-Rewrote SDK asset URLs (1) on host play.boomstream.com to: play.boomstream.net
-Try to call api/ppv: https://.../addbuyer?...
-Result: ...                            (только при Status==Success)
-Result failed: <Message>               (только при не-Success)
-Used url: ...?id_recovery=...
--->
+<!-- Adaptive embed -->
+<script src="https://play.boomstream.com/<MEDIA_CODE>/config.jsonp" async></script>
+<script src="https://play.boomstream.com/assets/javascripts/biframesdk.js" async></script>
+<span data-boomstream-code="<MEDIA_CODE>" data-boomstream-mode="adaptive"></span>
 ```
 
-В продакшене (`debug = No`) комментарий не выводится.
+The filter detects supported player hosts (`play.boomstream.com`, `.net`, `.dev`, `.org`, plus any custom hostname configured in plugin settings) and processes them automatically — no extra markup is required.
 
-## Локальный тест
+## Hostname rewriting
 
-`test.php` подменяет `moodle_text_filter` и `get_config`, чтобы плагин можно было запустить без Moodle:
+If you set the `Hostname` option in plugin settings (for example, to your custom Boomstream domain), the filter will:
 
-```bash
-cd boomstream && php test.php
-```
+* call the Boomstream PPV API on that hostname,
+* rewrite the player host in the matched `src` attribute to that hostname,
+* rewrite the host of the adaptive SDK script (`.../assets/javascripts/biframesdk.js`) to the same hostname,
 
-В тесте фигурирует фиктивный `$USER` (id=1, email=`obidnov@gmail.com`) и тестовый набор key/subscription. Реальный API ответит `Application not found` — это нормально, просто проверка, что фильтр доходит до сетевого вызова и корректно обрабатывает результат.
+so that the same domain is used everywhere on the page. If the `Hostname` field is left empty, no rewriting is performed and the host originally written by the content author is preserved.
 
-## Файлы
+## Installation
 
-| Файл | Назначение |
+1. Download or build the plugin ZIP.
+2. Either unpack the ZIP and upload the `boomstream` folder to `<moodle>/filter/`, or install via *Site administration → Plugins → Install plugins → ZIP package*.
+3. Open *Site administration → Filters → Manage filters* and enable **Boomstream video platform**.
+4. Open *Site administration → Plugins → Filters → Boomstream* and fill in the settings.
+
+## Settings
+
+| Field | Purpose |
 |---|---|
-| `filter.php` | Точка входа Moodle: класс `filter_boomstream extends moodle_text_filter`, делегирует в `boomstream`. |
-| `boomstream.php` | Вся логика: регулярка, API-вызовы, ретрай, подстановка `id_recovery`. |
-| `settings.php` | Поля админки (hostname / key / subscription / debug). |
-| `lang/en/filter_boomstream.php` | Тексты на английском. |
-| `version.php` | Версия плагина (Moodle compat). |
-| `test.php` | CLI-харнес для локальной проверки фильтра. |
+| Hostname | Target Boomstream hostname. Used for API calls and for rewriting the player and SDK URLs in embedded HTML. Optional — when empty, the host detected in the embedded `src` is used as-is. Default: `play.boomstream.com`. |
+| API key | Project API key. Found at *boomstream.com → Project Settings → Integration*. Required. |
+| Subscription code | Subscription that buyers will be attached to. Found at *boomstream.com → Subscriptions → Subscription Name*. Required. |
+| Use debug | When enabled, the filter appends an HTML comment to each filtered page with detailed trace info (matched codes, API calls, responses). Useful for troubleshooting; leave disabled in production. |
+
+## Requirements
+
+* A Boomstream account with at least one PPV subscription configured.
+* A valid API key issued for that project.
+* Outbound HTTPS access from the Moodle server to the Boomstream API host.
+* Each Moodle user must have a valid e-mail address in their profile — it is sent to Boomstream as the buyer e-mail.
+
+## Privacy
+
+For every page render that contains a Boomstream embed, the plugin sends the following data to Boomstream:
+
+* The Moodle site host name (`HTTP_HOST`), Moodle user ID and media code, combined into the access hash.
+* The Moodle user's e-mail address (used as the Boomstream buyer e-mail).
+
+No course content, no other personal data and no analytics are transmitted. The plugin does not store anything in the Moodle database.
+
+## Support
+
+* Plugin issues / pull requests: see the source code repository linked on the plugin page.
+* Boomstream account, billing and video settings: <https://boomstream.com>.
