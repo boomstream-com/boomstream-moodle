@@ -31,9 +31,9 @@ $boomstream = new boomstream();
 //    '<iframe width="640" height="360" src="https://play.boomstream.net/FE7yDJpF/config.jsonp" frameborder="0" scrolling="no" allowfullscreen></iframe>';
 
 
-$testText = '<script src="https://play.boomstream.com/FE7yDJpF/config.jsonp" async></script>
+$testText = '<script src="https://play.boomstream.com/Am0TlUow/config.jsonp" async></script>
 <script src="https://play.boomstream.com/assets/javascripts/biframesdk.js?v=1.0.5" async></script>
-<span data-boomstream-code="FE7yDJpF"
+<span data-boomstream-code="Am0TlUow"
       data-boomstream-mode="adaptive"
       data-boomstream-use-fullscreen-mode="0"
 ></span>';

@@ -54,6 +54,7 @@ class boomstream {
 
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $link);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
         try {
@@ -90,10 +91,17 @@ class boomstream {
                 $debugMessage .= "\nTry working with url: " . $matchedUrl;
                 $debugMessage .= "\nTry working with host: " . $identifier;
 
-                if (isset($_SERVER['HTTP_HOST'])) {
-                    $identifier = $_SERVER['HTTP_HOST'];
-                }
                 $hash = $identifier . '|' . $USER->id . '|' . $media;
+                if (isset($_SERVER['HTTP_HOST'])) {
+                    $hash = $_SERVER['HTTP_HOST'] . '|' . $USER->id . '|' . $media;
+                }
+
+                if (empty($this->hostname)) {
+                    $this->hostname = $identifier;
+                }
+
+                $debugMessage .= "\nAPI calls to host: " . $this->hostname;
+
                 $params =
                     'format=json&' .
                     'apikey=' .  $this->key .
@@ -103,12 +111,12 @@ class boomstream {
                     '&notification=0' .
                     '&hash=' . $hash;
 
-                $result = $this->_curlBoomstream('https://boomstream.com/api/ppv/addbuyer?' . $params, $debugMessage);
-
-                $debugMessage .= "\nResult:\n";
-                $debugMessage .= print_r($result, true);
+                $result = $this->_curlBoomstream('https://' . $this->hostname . '/api/ppv/addbuyer?' . $params, $debugMessage);
 
                 if (isset($result->Status) && $result->Status == 'Success') {
+
+                    $debugMessage .= "\nResult:\n";
+                    $debugMessage .= print_r($result, true);
 
                     $dtExpiration = new DateTime($result->AccessExpirationDate ?? 'now', new DateTimeZone('Europe/Moscow'));
                     $dtNow = new DateTime('now', new DateTimeZone('Europe/Moscow'));
@@ -118,13 +126,13 @@ class boomstream {
                     $debugMessage .= "\nisAccessExpired: " . ($isAccessExpired ? "yes" : "no") . "\n";
 
                     if ($result->Recovery == 0 || $isAccessExpired) {
-                        $resultSubscription = $this->_curlBoomstream('https://boomstream.com/api/ppv/info?' . $params, $debugMessage);
+                        $resultSubscription = $this->_curlBoomstream('https://' . $this->hostname . '/api/ppv/info?' . $params, $debugMessage);
 
                         $debugMessage .= "\nSubscription result:\n";
                         $debugMessage .= print_r($resultSubscription, true);
 
                         if ($result->Recovery == 0 && isset($resultSubscription->Items['Item']['Activation']) && isset($resultSubscription->Status) && $resultSubscription->Status == 'Success') {
-                            $result = $this->_curlBoomstream('https://boomstream.com/api/ppv/updatebuyer?' . $params . '&activation=' . $resultSubscription->Items['Item']['Activation'], $debugMessage);
+                            $result = $this->_curlBoomstream('https://' . $this->hostname . '/api/ppv/updatebuyer?' . $params . '&activation=' . $resultSubscription->Items['Item']['Activation'], $debugMessage);
 
                             $debugMessage .= "\nUpdateBuyer result:\n";
                             $debugMessage .= print_r($result, true);
@@ -136,7 +144,7 @@ class boomstream {
                             } else {
                                 $accessExpire = $dtNow->add(new DateInterval("P" . $resultSubscription->Items['Item']['Period'] . "D"))->format('Y-m-d H:i:s');
                             }
-                            $result = $this->_curlBoomstream('https://boomstream.com/api/ppv/updatebuyer?' . $params . '&access_expire=' . urlencode($accessExpire), $debugMessage);
+                            $result = $this->_curlBoomstream('https://' . $this->hostname . '/api/ppv/updatebuyer?' . $params . '&access_expire=' . urlencode($accessExpire), $debugMessage);
 
                             $debugMessage .= "\nUpdateBuyer result:\n";
                             $debugMessage .= print_r($result, true);
@@ -154,6 +162,8 @@ class boomstream {
 
                     $debugMessage .= "\nUsed url: " . $resultUrl . "\n";
 
+                } else {
+                    $debugMessage .= "\nResult failed: " . $result->Message ?? 'Wrong response from boomstream API' . "\n";
                 }
                 $i ++;
             }
