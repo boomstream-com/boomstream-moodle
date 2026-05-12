@@ -83,8 +83,8 @@ so that the same domain is used everywhere on the page. If the `Hostname` field 
 
 1. Download or build the plugin ZIP.
 2. Either unpack the ZIP and upload the `boomstream` folder to `<moodle>/filter/`, or install via *Site administration → Plugins → Install plugins → ZIP package*.
-3. Open *Site administration → Filters → Manage filters* and enable **Boomstream video platform**.
-4. Open *Site administration → Plugins → Filters → Boomstream* and fill in the settings.
+3. Open *Site administration → Plugins → Plugins overview → Boomstream* → Fill in the settings.
+4. Activate the global filter: go to *Site administration → Plugins → Filters → Manage filters* (`/admin/filters.php`) and enable **Boomstream video platform**. Without this step the filter will not process embedded players and shortcodes on course pages.
 
 ## Settings
 
