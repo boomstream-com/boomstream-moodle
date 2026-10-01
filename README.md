@@ -13,7 +13,7 @@ Use Boomstream to manage videos and online broadcasts:
 
 Whenever a course page is rendered, the filter scans the HTML for any embedded Boomstream player and, for each match, talks to the Boomstream PPV API on behalf of the current Moodle user:
 
-1. The user is registered as a buyer (`/api/ppv/addbuyer`) using their Moodle e-mail and a unique hash `<HTTP_HOST>|<userId>|<media_code>`.
+1. The user is registered as a buyer (`/api/ppv/addbuyer`) using their Moodle e-mail and a unique hash `<site_host>|<userId>|<media_code>`, where `site_host` is the host of the Moodle site (`$CFG->wwwroot`).
 2. If the buyer has an active subscription but no activation yet, the plugin attaches them to the subscription (`/api/ppv/info` + `/api/ppv/updatebuyer`).
 3. If their access has expired but the subscription is still valid, the plugin extends the access window automatically.
 4. A personal recovery token (`id_recovery`) is appended to the player URL so that the Boomstream player itself only streams the video to that specific user.
@@ -42,13 +42,14 @@ Parameters:
 |---|---|---|
 | `media[]` | yes | 8-character Boomstream media code (e.g. `Am0TlUow`). |
 | `subscription[]` | no | Subscription code. **Overrides the global subscription** configured in plugin settings for this embed only. Useful when different videos belong to different Boomstream subscriptions. If omitted, the global subscription is used. |
-| `size[]` | no | Player size in `WIDTHxHEIGHT` format. Default: `640x360`. |
-| `mode[]` | no | `iframe` (default) — expanded into a classic `<iframe>` embed. `adaptive` — expanded into Boomstream's adaptive multi-tag embed (`<script>` + `<script>` + `<span data-boomstream-code>` inside a sized `<div>`). |
+| `size[]` | no | Player size in `WIDTHxHEIGHT` format. Default: `640x360`. In `adaptive` mode only the width is used, as the maximum width; the height follows the aspect ratio of the video. |
+| `mode[]` | no | `iframe` (default) — expanded into a classic `<iframe>` embed. `adaptive` — expanded into Boomstream's adaptive multi-tag embed (`<script>` + `<script>` + `<span data-boomstream-code>`). The adaptive player fills the width of the page column and resizes with it. |
 
 Adaptive example:
 
 ```
-[boomstream media[Am0TlUow] mode[adaptive] size[1280x720]]
+[boomstream media[Am0TlUow] mode[adaptive]]
+[boomstream media[Am0TlUow] mode[adaptive] size[800x450]]   (no wider than 800px)
 ```
 
 The shortcode is expanded server-side before the page is sent to the browser. After expansion the resulting HTML goes through the same access-control pipeline described below — the user gets a personal `id_recovery` and Boomstream PPV is checked.
@@ -93,10 +94,12 @@ so that the same domain is used everywhere on the page. If the `Hostname` field 
 | Hostname | Target Boomstream hostname. Used for API calls and for rewriting the player and SDK URLs in embedded HTML. Optional — when empty, the host detected in the embedded `src` is used as-is. Default: `play.boomstream.com`. |
 | API key | Project API key. Found at *boomstream.com → Project Settings → Integration*. Required. |
 | Subscription code | Subscription that buyers will be attached to. Found at *boomstream.com → Subscriptions → Subscription Name*. Required. |
-| Use debug | When enabled, the filter appends an HTML comment to each filtered page with detailed trace info (matched codes, API calls, responses). Useful for troubleshooting; leave disabled in production. |
+| Debug mode | When enabled, the filter appends an HTML comment to each filtered page with detailed trace info (matched codes, API calls, responses; the API key is masked). The trace is shown to site administrators only. Leave disabled in production. |
 
 ## Requirements
 
+* Moodle 3.9 or later.
+* **A paid Boomstream subscription.** The plugin is a client of the commercial Boomstream service (<https://boomstream.com>): sign up there, create a project, upload videos and configure a Pay Per View subscription.
 * A Boomstream account with at least one PPV subscription configured.
 * A valid API key issued for that project.
 * Outbound HTTPS access from the Moodle server to the Boomstream API host.
@@ -106,10 +109,12 @@ so that the same domain is used everywhere on the page. If the `Hostname` field 
 
 For every page render that contains a Boomstream embed, the plugin sends the following data to Boomstream:
 
-* The Moodle site host name (`HTTP_HOST`), Moodle user ID and media code, combined into the access hash.
+* The Moodle site host name, Moodle user ID and media code, combined into the access hash.
 * The Moodle user's e-mail address (used as the Boomstream buyer e-mail).
 
-No course content, no other personal data and no analytics are transmitted. The plugin does not store anything in the Moodle database.
+No course content, no other personal data and no analytics are transmitted. The plugin does not store anything in the Moodle database. This is declared through the Moodle Privacy API (external location `boomstream`).
+
+The API calls are made synchronously while the page is rendered (timeout 10 seconds per call), so an unavailable Boomstream API slows down pages that contain Boomstream players.
 
 ## Support
 

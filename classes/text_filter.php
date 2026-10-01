@@ -14,18 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace filter_boomstream;
+
 /**
- * Version information.
+ * Boomstream text filter (Moodle 4.5+).
  *
  * @package    filter_boomstream
  * @copyright  2026 HWD LTD <support@boomstream.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'filter_boomstream';
-$plugin->version   = 2026093000;
-$plugin->requires  = 2020061500; // Moodle 3.9.
-$plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = 'v1.4.0';
+class text_filter extends \core_filters\text_filter {
+    /**
+     * Filters the text.
+     *
+     * @param string $text Text to filter.
+     * @param array $options Filter options.
+     * @return string Filtered text.
+     */
+    public function filter($text, array $options = []) {
+        return (new boomstream())->filter($text, $options);
+    }
+}

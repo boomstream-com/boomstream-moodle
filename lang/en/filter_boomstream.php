@@ -1,4 +1,4 @@
-<?php 
+<?php
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -15,21 +15,27 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Boomstream filter
+ * English strings for filter_boomstream.
  *
- * @package    filter
- * @subpackage boomstream
- * @copyright  HWD LTD <support@boomstream.com>
+ * @package    filter_boomstream
+ * @copyright  2026 HWD LTD <support@boomstream.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
- 
+
+defined('MOODLE_INTERNAL') || die();
+
+$string['debug'] = 'Debug mode';
+$string['debug_desc'] = 'Append a trace of the filter work (matched players, API calls and responses) as an HTML comment to filtered pages. The trace is shown to site administrators only. Keep disabled in production.';
 $string['filtername'] = 'Boomstream video platform';
 $string['hostname'] = 'Hostname';
-$string['hostname_desc'] = 'Hostname of boomstream player';
+$string['hostname_desc'] = 'Boomstream player hostname, for example play.boomstream.com or your custom domain. It is used for API calls and replaces the host of embedded players. Leave empty to keep the host written in each embed.';
 $string['key'] = 'API key';
-$string['key_desc'] = 'API key is located at boomstream.com -> Project Settings -> Integration';
+$string['key_desc'] = 'Project API key. You can find it in your Boomstream account: Project Settings → Integration.';
+$string['pluginname'] = 'Boomstream video platform';
+$string['privacy:metadata:boomstream'] = 'To give the user personal access to embedded Boomstream videos, the plugin registers the user as a buyer in the Boomstream Pay Per View service.';
+$string['privacy:metadata:boomstream:email'] = 'The email address of the user, used as the Boomstream buyer email.';
+$string['privacy:metadata:boomstream:sitehost'] = 'The host name of this Moodle site, part of the user access identifier.';
+$string['privacy:metadata:boomstream:userid'] = 'The Moodle ID of the user, part of the user access identifier.';
+$string['settingsintro'] = 'The Boomstream filter binds embedded Boomstream players to the logged-in user and checks access against your Boomstream Pay Per View subscription. A Boomstream account is required, see <a href="https://boomstream.com" target="_blank" rel="noopener">boomstream.com</a>. After saving the settings, enable the filter at Site administration → Plugins → Filters → Manage filters.';
 $string['subscription'] = 'Subscription code';
-$string['subscription_desc'] = 'Subscription code is located at boomstream.com -> Subscriptions Tab -> Subscription Nane';
-$string['debug'] = 'Use debug';
-$string['debug_desc'] = 'Add trace information into html: Boomstream filter is applied ....';
-$string['description'] = '<div style="margin:10px;padding:15px;background-color:#f5f5f5;border:2px solid #e3e3e3;"><img src="https://boomstream.com/favicon.ico"> Welcome to Boomstream Moodle plugin, check our <a href="https://boomstream.com" target="_blank">welcome page</a> for registration and manage videos.</div>';
+$string['subscription_desc'] = 'Code of the Boomstream subscription users are attached to. You can find it in your Boomstream account: Subscriptions → subscription name.';

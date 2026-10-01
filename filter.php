@@ -1,5 +1,4 @@
 <?php
-
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -16,19 +15,34 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information
+ * Boomstream filter entry point for Moodle 4.4 and older (Moodle 4.5+ uses classes/text_filter.php).
  *
- * @package    filter
- * @subpackage boomstream
- * @copyright  HWD LTD <support@boomstream.com>
+ * @package    filter_boomstream
+ * @copyright  2026 HWD LTD <support@boomstream.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require "boomstream.php";
-
-class filter_boomstream extends moodle_text_filter {
-    public function filter($text, array $options = array()) {
-        $boomstream = new boomstream();
-        return $boomstream->filter($text, $options);
+if (class_exists(\core_filters\text_filter::class)) {
+    // Moodle 4.5+: the filter is implemented by \filter_boomstream\text_filter.
+    class_alias(\filter_boomstream\text_filter::class, 'filter_boomstream');
+} else {
+    /**
+     * Boomstream text filter.
+     *
+     * @package    filter_boomstream
+     * @copyright  2026 HWD LTD <support@boomstream.com>
+     * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+     */
+    class filter_boomstream extends moodle_text_filter {
+        /**
+         * Filters the text.
+         *
+         * @param string $text Text to filter.
+         * @param array $options Filter options.
+         * @return string Filtered text.
+         */
+        public function filter($text, array $options = []) {
+            return (new \filter_boomstream\boomstream())->filter($text, $options);
+        }
     }
 }

@@ -15,41 +15,49 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Boomstream filter settings
+ * Boomstream filter settings.
  *
- * @package    filter
- * @subpackage boomstream
- * @copyright  HWD LTD <support@boomstream.com>
+ * @package    filter_boomstream
+ * @copyright  2026 HWD LTD <support@boomstream.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
- 
+
 defined('MOODLE_INTERNAL') || die();
 
 if ($ADMIN->fulltree) {
-    
-    $description = new lang_string('description', 'filter_boomstream');
-    $settings->add(new admin_setting_heading('defaultsettings', '', $description));
+    $settings->add(new admin_setting_heading(
+        'filter_boomstream/intro',
+        '',
+        new lang_string('settingsintro', 'filter_boomstream')
+    ));
 
-    $settings->add(new admin_setting_configtext('filter_boomstream/hostname',
-        get_string('hostname', 'filter_boomstream'),
-        get_string('hostname_desc', 'filter_boomstream'),
+    $settings->add(new admin_setting_configtext(
+        'filter_boomstream/hostname',
+        new lang_string('hostname', 'filter_boomstream'),
+        new lang_string('hostname_desc', 'filter_boomstream'),
         'play.boomstream.com',
-        PARAM_TEXT));
+        PARAM_HOST
+    ));
 
-    $settings->add(new admin_setting_configtext('filter_boomstream/key',
-        get_string('key', 'filter_boomstream'),
-        get_string('key_desc', 'filter_boomstream'),
-        'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-        PARAM_TEXT));
+    $settings->add(new admin_setting_configpasswordunmask(
+        'filter_boomstream/key',
+        new lang_string('key', 'filter_boomstream'),
+        new lang_string('key_desc', 'filter_boomstream'),
+        ''
+    ));
 
-    $settings->add(new admin_setting_configtext('filter_boomstream/subscription',
-        get_string('subscription', 'filter_boomstream'),
-        get_string('subscription_desc', 'filter_boomstream'),
-        'XXXXXXXX',
-        PARAM_TEXT));
+    $settings->add(new admin_setting_configtext(
+        'filter_boomstream/subscription',
+        new lang_string('subscription', 'filter_boomstream'),
+        new lang_string('subscription_desc', 'filter_boomstream'),
+        '',
+        PARAM_ALPHANUM
+    ));
 
-    $settings->add(new admin_setting_configselect('filter_boomstream/debug',
-        get_string('debug', 'filter_boomstream'),
-        get_string('debug_desc', 'filter_boomstream'),
-        0, [0 => 'No', 1 => 'Yes']));
+    $settings->add(new admin_setting_configcheckbox(
+        'filter_boomstream/debug',
+        new lang_string('debug', 'filter_boomstream'),
+        new lang_string('debug_desc', 'filter_boomstream'),
+        0
+    ));
 }
