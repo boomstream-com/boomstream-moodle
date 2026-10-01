@@ -1,0 +1,4 @@
+# Moodle requires LF line endings.
+* text=auto eol=lf
+*.zip binary
+*.png binary

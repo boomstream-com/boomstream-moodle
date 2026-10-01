@@ -15,17 +15,17 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information.
+ * Base class of the filter: \core_filters\text_filter on Moodle 4.5+, \moodle_text_filter on older versions.
+ *
+ * Loaded by the autoloader when \filter_boomstream\text_filter is declared.
  *
  * @package    filter_boomstream
  * @copyright  2026 HWD LTD <support@boomstream.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'filter_boomstream';
-$plugin->version   = 2026100100;
-$plugin->requires  = 2020061500; // Moodle 3.9.
-$plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = 'v1.4.1';
+if (class_exists(\core_filters\text_filter::class)) {
+    class_alias(\core_filters\text_filter::class, \filter_boomstream\base_text_filter::class);
+} else {
+    class_alias(\moodle_text_filter::class, \filter_boomstream\base_text_filter::class);
+}

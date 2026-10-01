@@ -17,13 +17,13 @@
 namespace filter_boomstream;
 
 /**
- * Boomstream text filter (Moodle 4.5+).
+ * Boomstream text filter.
  *
  * @package    filter_boomstream
  * @copyright  2026 HWD LTD <support@boomstream.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class text_filter extends \core_filters\text_filter {
+class text_filter extends base_text_filter {
     /**
      * Filters the text.
      *
