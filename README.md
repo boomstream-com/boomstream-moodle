@@ -13,8 +13,8 @@ Use Boomstream to manage videos and online broadcasts:
 
 Whenever a course page is rendered, the filter scans the HTML for any embedded Boomstream player and, for each match, talks to the Boomstream PPV API on behalf of the current Moodle user:
 
-1. The user is registered as a buyer (`/api/ppv/addbuyer`) using their Moodle e-mail and a unique hash `<site_host>|<userId>|<media_code>`, where `site_host` is the host of the Moodle site (`$CFG->wwwroot`).
-2. If the buyer has an active subscription but no activation yet, the plugin attaches them to the subscription (`/api/ppv/info` + `/api/ppv/updatebuyer`).
+1. The user is registered as a customer (`/api/ppv/addbuyer`) using their Moodle e-mail and a unique hash `<site_host>|<userId>|<media_code>`, where `site_host` is the host of the Moodle site (`$CFG->wwwroot`).
+2. If the customer has an active subscription but no activation yet, the plugin attaches them to the subscription (`/api/ppv/info` + `/api/ppv/updatebuyer`).
 3. If their access has expired but the subscription is still valid, the plugin extends the access window automatically.
 4. A personal recovery token (`id_recovery`) is appended to the player URL so that the Boomstream player itself only streams the video to that specific user.
 
@@ -93,7 +93,7 @@ so that the same domain is used everywhere on the page. If the `Hostname` field 
 |---|---|
 | Hostname | Target Boomstream hostname. Used for API calls and for rewriting the player and SDK URLs in embedded HTML. Optional — when empty, the host detected in the embedded `src` is used as-is. Default: `play.boomstream.com`. |
 | API key | Project API key. Found at *boomstream.com → Project Settings → Integration*. Required. |
-| Subscription code | Subscription that buyers will be attached to. Found at *boomstream.com → Subscriptions → Subscription Name*. Required. |
+| Subscription code | Subscription that customers will be attached to. Found at *boomstream.com → Subscriptions → Subscription Name*. Required. |
 | Debug mode | When enabled, the filter appends an HTML comment to each filtered page with detailed trace info (matched codes, API calls, responses; the API key is masked). The trace is shown to site administrators only. Leave disabled in production. |
 
 ## Requirements
@@ -103,14 +103,14 @@ so that the same domain is used everywhere on the page. If the `Hostname` field 
 * A Boomstream account with at least one PPV subscription configured.
 * A valid API key issued for that project.
 * Outbound HTTPS access from the Moodle server to the Boomstream API host.
-* Each Moodle user must have a valid e-mail address in their profile — it is sent to Boomstream as the buyer e-mail.
+* Each Moodle user must have a valid e-mail address in their profile — it is sent to Boomstream as the customer e-mail.
 
 ## Privacy
 
 For every page render that contains a Boomstream embed, the plugin sends the following data to Boomstream:
 
 * The Moodle site host name, Moodle user ID and media code, combined into the access hash.
-* The Moodle user's e-mail address (used as the Boomstream buyer e-mail).
+* The Moodle user's e-mail address (used as the Boomstream customer e-mail).
 
 No course content, no other personal data and no analytics are transmitted. The plugin does not store anything in the Moodle database. This is declared through the Moodle Privacy API (external location `boomstream`).
 
