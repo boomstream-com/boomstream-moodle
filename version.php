@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'filter_boomstream';
-$plugin->version   = 2026100100;
+$plugin->version   = 2026111800;
 $plugin->requires  = 2020061500; // Moodle 3.9.
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = 'v1.4.1';
+$plugin->release   = 'v1.4.2';
