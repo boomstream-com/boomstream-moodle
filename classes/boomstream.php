@@ -28,10 +28,10 @@ class boomstream {
     private const ZERO_TIME = '0000-00-00 00:00:00';
 
     /** @var string[] Public Boomstream player hosts recognised by the filter. */
-    private const PUBLIC_HOSTS = ['play.boomstream.com', 'play.boomstream.net', 'play.boomstream.dev', 'play.boomstream.org'];
+    private const PUBLIC_HOSTS = ['play.boomstream.net', 'play.boomstream.com', 'play.boomstream.dev', 'play.boomstream.org'];
 
     /** @var string Default player host used when the hostname setting is empty. */
-    private const DEFAULT_HOST = 'play.boomstream.com';
+    private const DEFAULT_HOST = 'play.boomstream.net';
 
     /** @var string Configured target hostname (may be empty). */
     private $hostname;

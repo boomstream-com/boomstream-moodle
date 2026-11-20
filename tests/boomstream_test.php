@@ -83,6 +83,19 @@ final class boomstream_test extends \advanced_testcase {
     }
 
     /**
+     * Without a configured hostname, shortcodes use the default player domain play.boomstream.net.
+     */
+    public function test_shortcode_default_host(): void {
+        $this->resetAfterTest();
+        set_config('hostname', '', 'filter_boomstream');
+
+        $debug = '';
+        $overrides = [];
+        $html = (new boomstream())->expand_shortcodes('[boomstream media[Am0TlUow]]', $debug, $overrides);
+        $this->assertStringContainsString('src="https://play.boomstream.net/Am0TlUow"', $html);
+    }
+
+    /**
      * Invalid shortcodes are left as they are.
      */
     public function test_invalid_shortcodes_are_kept(): void {

@@ -35,7 +35,7 @@ if ($ADMIN->fulltree) {
         'filter_boomstream/hostname',
         new lang_string('hostname', 'filter_boomstream'),
         new lang_string('hostname_desc', 'filter_boomstream'),
-        'play.boomstream.com',
+        'play.boomstream.net',
         PARAM_HOST
     ));
 
